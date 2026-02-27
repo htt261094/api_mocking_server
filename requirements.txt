@@ -1,0 +1,5 @@
+robotframework
+robotframework-requests
+fastapi
+uvicorn
+psycopg2-binary

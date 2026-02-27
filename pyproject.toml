@@ -1,0 +1,9 @@
+[tool.robotcode]
+# RobotCode configuration
+robot.python.executable = "venv/bin/python"
+robot.language-server.mode = "standard"
+robot.lint.enabled = true
+
+[tool.robotcode.robot]
+pythonpath = ["."]
+# paths = ["tests", "resources"]

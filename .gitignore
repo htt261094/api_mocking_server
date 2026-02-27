@@ -1,0 +1,29 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+bin/
+lib64/
+lib/
+include/
+pyvenv.cfg
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Robot Framework Outputs
+output.xml
+log.html
+report.html
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# Brain/Artifacts (Temporary)
+.gemini/
+.agents/
