@@ -13,7 +13,7 @@ Scenario: Proxy Real Bank Requests and Mock Local Responses
     
     # 1. POST request to Mock Server (simulate Middleman calling the proxy instead of Real Bank)
     ${initial_balance}=    Get Wallet Balance    ${1}
-    # We pass a dummy real_bank_url to trigger the background forwarding
+    # We pass a dummy real_bank_url to ALWAYS trigger the background forwarding
     ${data}=    Create Dictionary    amount=${AMOUNT}    test_response_code=00    real_bank_url=https://httpbin.org/post
     ${response}=    POST To Bank Endpoint    ${data}
     Status Should Be    200    ${response}
