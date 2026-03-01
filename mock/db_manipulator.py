@@ -1,13 +1,22 @@
 import sqlite3
 import os
+import decimal
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "mock.db")
+
+# Register Decimal adapters with SQLite globally to prevent floating point loss
+sqlite3.register_adapter(decimal.Decimal, lambda d: str(d))
+sqlite3.register_converter("DECIMAL", lambda s: decimal.Decimal(s.decode('utf-8')))
+
+def get_db_connection():
+    """Return a connection that automatically parses declared types."""
+    return sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES)
 
 def create_order(order_code, amount):
     """
     Step 1: Create a new order with status 'INIT'.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
         "INSERT INTO orders (order_code, amount, status) VALUES (?, ?, 'INIT')",
@@ -23,7 +32,7 @@ def activate_order(order_code, partner_code, partner_trans_id):
     """
     Step 2: Update order to 'PROCESSING' and create a PENDING transaction.
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     
     cur.execute("UPDATE orders SET status = 'PROCESSING' WHERE order_code = ?", (order_code,))
@@ -47,7 +56,7 @@ def activate_order_with_deduction(order_code, partner_code, partner_trans_id):
     """
     Special Step 2: Activate order and deduct balance from wallet (PRE-PAYMENT).
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     
     # Get order amount
@@ -79,7 +88,7 @@ def get_bank_response_from_db(resp_code):
     Step 3: Get mock response code and message from DB.
     """
     print(f"DEBUG: [DB_MOCK] Fetching mock response for code '{resp_code}' from bank_responses table...")
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT resp_code, resp_message, target_status, http_status FROM bank_responses WHERE resp_code = ?", (resp_code,))
     row = cur.fetchone()
@@ -100,7 +109,7 @@ def process_transaction_with_refund(partner_trans_id, resp_code):
     
     target_status = mock_resp['status'] # SUCCESS or FAILED
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     
     # Update transaction
@@ -141,7 +150,7 @@ def process_transaction_with_db_mock(partner_trans_id, resp_code):
         raise ValueError(f"Mock response code {resp_code} not found in DB")
     
     target_status = mock_resp['status']
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("UPDATE transactions SET trans_status = ?, callback_logs = ? WHERE partner_trans_id = ?", (target_status, mock_resp['message'], partner_trans_id))
     cur.execute("""
@@ -161,7 +170,7 @@ def process_transaction_with_db_mock(partner_trans_id, resp_code):
     return mock_resp
 
 def get_order_status(order_code):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT status FROM orders WHERE order_code = ?", (order_code,))
     row = cur.fetchone()
@@ -169,12 +178,12 @@ def get_order_status(order_code):
     return row[0] if row else None
 
 def get_wallet_balance(user_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT balance FROM wallets WHERE user_id = ?", (user_id,))
     row = cur.fetchone()
     conn.close()
-    return float(row[0]) if row else 0.0
+    return row[0] if row else decimal.Decimal('0.0')
 
 # Backward compatibility wrappers
 def create_order_and_transaction(order_code, amount, partner_code, partner_trans_id):

@@ -52,7 +52,7 @@ def init_db():
     """)
 
     # Seed data
-    cur.execute("INSERT OR IGNORE INTO wallets (user_id, balance) VALUES (1, 1000000)")
+    cur.execute("INSERT OR IGNORE INTO wallets (user_id, balance) VALUES (1, '10000000.00')")
     
     # Seed bank responses
     responses = [

@@ -47,8 +47,8 @@ Scenario: Automated Wallet Refund On Bank Failure
     
     # 2. Verify deduction occurred
     ${deducted_balance}=    Get Wallet Balance    ${1}
-    ${expected_deducted}=    Evaluate    ${initial_balance} - ${AMOUNT}
-    Should Be Equal As Numbers    ${deducted_balance}    ${expected_deducted}
+    ${expected_deducted}=    Evaluate    decimal.Decimal(str(${initial_balance})) - decimal.Decimal(str(${AMOUNT}))    modules=decimal
+    Should Be Equal As Strings    ${deducted_balance}    ${expected_deducted}
     Log To Console    ---> Deduction Verified. Current Balance is: ${deducted_balance}
 
     # 3. Simulate Bank Failure (Code 01)

@@ -34,10 +34,10 @@ Verify Database Order And Balance
     
     ${final_balance}=    Get Wallet Balance    ${1}
     IF    '${expected_status}' == 'SUCCESS'
-        ${expected_balance}=    Evaluate    ${initial_balance} + ${amount}
-        Should Be Equal As Numbers    ${final_balance}    ${expected_balance}
+        ${expected_balance}=    Evaluate    decimal.Decimal(str(${initial_balance})) + decimal.Decimal(str(${amount}))    modules=decimal
+        Should Be Equal As Strings    ${final_balance}    ${expected_balance}
     ELSE
-        Should Be Equal As Numbers    ${final_balance}    ${initial_balance}
+        Should Be Equal As Strings    ${final_balance}    ${initial_balance}
     END
     Log To Console    Verified Order Status: ${final_status}, Balance: ${final_balance}
 

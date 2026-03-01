@@ -67,7 +67,11 @@ def create_user(user: User):
 def mock_bank_payment(data: dict, background_tasks: BackgroundTasks):
     # Proxy Interception Logic
     order_code = f"ORD_{random.randint(100000, 999999)}"
-    amount = data.get("amount", 0)
+    
+    # Cast safely via string intermediary to prevent Python float pollution
+    import decimal
+    amount = decimal.Decimal(str(data.get("amount", "0")))
+    
     trans_id = f"BANK_{random.randint(10000000, 99999999)}"
     
     # Control flags
