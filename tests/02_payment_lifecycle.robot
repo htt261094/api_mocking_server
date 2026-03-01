@@ -10,11 +10,11 @@ Scenario: Proxy Real Bank Requests and Mock Local Responses
     
     # 1. Capture State and proxy request to Mock Server
     Capture Initial Wallet Balance
-    ${response}=    Simulate Proxy Bank Request    ${AMOUNT}    00    https://httpbin.org/post
+    Simulate Proxy Bank Request    ${AMOUNT}    00    https://httpbin.org/post
     
     # 2. Extract generated IDs and Verify Mock Response
-    Verify Proxy Response Is Successful    ${response}
-    Extract State IDs From Proxy Response    ${response}
+    Verify Proxy Response Is Successful
+    Extract State IDs From Proxy Response
     
     # 3. Verify final state logic (The DB was injected INSTANTLY by the proxy mock!)
     Verify Order Status Is    SUCCESS

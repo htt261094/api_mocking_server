@@ -31,14 +31,12 @@ Setup Unique Test IDs
     Set Test Variable    ${CURRENT_TRANS_ID}      ${trans_id}
 
 Verify Proxy Response Is Successful
-    [Arguments]    ${response}
-    ${json}=    Set Variable    ${response.json()}
+    ${json}=    Set Variable    ${PROXY_RESPONSE.json()}
     Should Be Equal    ${json['status']}    SUCCESS
     Should Be Equal    ${json['code']}      00
 
 Extract State IDs From Proxy Response
-    [Arguments]    ${response}
-    ${json}=    Set Variable    ${response.json()}
+    ${json}=    Set Variable    ${PROXY_RESPONSE.json()}
     Set Test Variable    ${CURRENT_ORDER_CODE}    ${json['order_code']}
     Set Test Variable    ${CURRENT_TRANS_ID}      ${json['transaction_id']}
     Log To Console    \n---> Proxy intercepted! Created async Order: ${CURRENT_ORDER_CODE} | Transaction ID: ${CURRENT_TRANS_ID}

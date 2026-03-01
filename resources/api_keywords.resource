@@ -3,7 +3,8 @@ Library    RequestsLibrary
 Library    Collections
 
 *** Variables ***
-${BASE_URL}    http://127.0.0.1:8000
+${BASE_URL}          http://127.0.0.1:8000
+${PROXY_RESPONSE}    ${None}
 
 *** Keywords ***
 Start Mock API Session
@@ -42,4 +43,4 @@ Simulate Proxy Bank Request
     
     ${response}=    POST To Bank Endpoint    ${data}
     Status Should Be    200    ${response}
-    RETURN    ${response}
+    Set Test Variable    ${PROXY_RESPONSE}    ${response}
