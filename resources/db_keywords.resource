@@ -8,6 +8,7 @@ ${CURRENT_ORDER_CODE}    ${None}
 ${CURRENT_TRANS_ID}      ${None}
 ${AMOUNT}                200000
 ${PARTNER_CODE}          NAPAS
+${INITIAL_BALANCE}       ${None}
 
 *** Keywords ***
 Generate Unique Order ID
@@ -39,6 +40,39 @@ Verify Proxy Response And Initialize State
     Set Test Variable    ${CURRENT_TRANS_ID}      ${json['transaction_id']}
     Log To Console    \n---> Proxy intercepted! Created async Order: ${CURRENT_ORDER_CODE} | Transaction ID: ${CURRENT_TRANS_ID}
     Log To Console    ---> Mock Server instantly returned DB response: ${json['message']}
+
+Capture Initial Wallet Balance
+    [Documentation]    Saves the real DB balance implicitly to state before beginning the test logic.
+    ${bal}=    Get Wallet Balance    ${1}
+    Set Test Variable    ${INITIAL_BALANCE}    ${bal}
+    Log To Console    ---> Initial Balance Captured: ${INITIAL_BALANCE}
+
+Verify Final Wallet Balance For Current Order
+    [Documentation]    Verifies that the database successfully processed a mock payment and upgraded the balance correctly according to the current order status.
+    [Arguments]    ${expected_status}
+    Verify Database Order And Balance    ${CURRENT_ORDER_CODE}    ${expected_status}    ${INITIAL_BALANCE}    ${AMOUNT}
+    ${final_balance}=    Get Wallet Balance    ${1}
+    Log To Console    ---> Zero waiting needed. Final Balance verified as: ${final_balance}
+
+ Create And Activate Order With Immediate Deduction
+    [Documentation]    Workflow wrapper to create and activate pre-deduction.
+    Create Order    ${CURRENT_ORDER_CODE}    ${AMOUNT}
+    Log To Console    \n---> Created Order: ${CURRENT_ORDER_CODE}
+    Activate Order With Deduction    ${CURRENT_ORDER_CODE}    NAPAS    ${CURRENT_TRANS_ID}
+    Log To Console    ---> Activated with Deduction for Transaction: ${CURRENT_TRANS_ID}
+
+Verify Successful Deduction From Wallet
+    [Documentation]    Verifies that the wallet now holds INITIAL - AMOUNT.
+    ${deducted_balance}=    Get Wallet Balance    ${1}
+    ${expected_deducted}=    Evaluate    decimal.Decimal(str(${INITIAL_BALANCE})) - decimal.Decimal(str(${AMOUNT}))    modules=decimal
+    Should Be Equal As Strings    ${deducted_balance}    ${expected_deducted}
+    Log To Console    ---> Deduction Verified. Current Balance is: ${deducted_balance}
+
+Simulate Bank Failure And Refund
+    [Documentation]    Wraps the backend refund mechanism logic natively.
+    [Arguments]    ${fail_code}
+    Log To Console    ---> Simulating Bank Failure (Code ${fail_code}) for ${CURRENT_TRANS_ID}
+    Process Transaction With Refund    ${CURRENT_TRANS_ID}    ${fail_code}
 
 Verify Database Order And Balance
     [Arguments]    ${order_code}    ${expected_status}    ${initial_balance}    ${amount}
