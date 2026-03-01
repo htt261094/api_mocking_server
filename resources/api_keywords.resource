@@ -28,3 +28,18 @@ Verify Status Endpoint
     [Arguments]    ${status_code}
     ${response}=    GET Mock Status Response    ${status_code}
     Status Should Be    ${status_code}    ${response}
+
+Simulate Proxy Bank Request
+    [Arguments]    ${amount}    ${test_response_code}    ${real_bank_url}=${None}
+    [Documentation]    Fetches initial balance and sends a simulated proxy request to the Mock Server.
+    
+    # Needs db_keywords to work, so we import it inline to avoid circular dependencies if any, 
+    # or rely on the suite having both imported. We'll just execute the generic API call.
+    ${data}=    Create Dictionary    amount=${amount}    test_response_code=${test_response_code}
+    IF    $real_bank_url is not None
+        Set To Dictionary    ${data}    real_bank_url=${real_bank_url}
+    END
+    
+    ${response}=    POST To Bank Endpoint    ${data}
+    Status Should Be    200    ${response}
+    RETURN    ${response}
