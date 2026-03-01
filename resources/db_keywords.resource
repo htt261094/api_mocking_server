@@ -6,6 +6,8 @@ Library    String
 *** Variables ***
 ${CURRENT_ORDER_CODE}    ${None}
 ${CURRENT_TRANS_ID}      ${None}
+${AMOUNT}                200000
+${PARTNER_CODE}          NAPAS
 
 *** Keywords ***
 Generate Unique Order ID

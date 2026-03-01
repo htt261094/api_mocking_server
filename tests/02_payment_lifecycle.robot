@@ -2,9 +2,6 @@
 Resource    ../resources/api_keywords.resource
 Resource    ../resources/db_keywords.resource
 
-*** Variables ***
-${AMOUNT}        200000
-${PARTNER_CODE}    NAPAS
 
 *** Test Cases ***
 Scenario: Proxy Real Bank Requests and Mock Local Responses
