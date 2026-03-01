@@ -7,32 +7,31 @@ ${AMOUNT}        200000
 ${PARTNER_CODE}    NAPAS
 
 *** Test Cases ***
-Scenario: Bypassing Bank Delay via State Injection
-    [Documentation]    Normal flow: Create -> Wait (Simulated) -> Manual DB Status Injection -> Verify Success.
-    [Setup]    Setup Unique Test IDs
+Scenario: Proxy Real Bank Requests and Mock Local Responses
+    [Documentation]    Interception flow: Mock server accepts request intended for real bank, forwards it in background, and immediately returns mocked DB response.
+    [Setup]    Start Mock API Session
     
-    # 1. Create Order and Transaction (Status starts at PENDING)
-    Create Order And Transaction    ${CURRENT_ORDER_CODE}    ${AMOUNT}    ${PARTNER_CODE}    ${CURRENT_TRANS_ID}
-    Log To Console    \n---> Created Order: ${CURRENT_ORDER_CODE} | Transaction ID: ${CURRENT_TRANS_ID} | Amount: ${AMOUNT}
-    
-    # 2. Verify Processing status
-    ${status}=    Get Order Status    ${CURRENT_ORDER_CODE}
-    Should Be Equal    ${status}    PROCESSING
+    # 1. POST request to Mock Server (simulate Middleman calling the proxy instead of Real Bank)
     ${initial_balance}=    Get Wallet Balance    ${1}
-    Log To Console    ---> Status is Processing. Initial Balance: ${initial_balance}
-
-    # 3. Simulate system waiting (delay)
-    Log To Console    System is waiting for Bank callback (Simulating 2s delay)...
-    Sleep    2s
-
-    # 4. State Injection: Force SUCCESS status in DB
-    Log To Console    ---> Injecting SUCCESS status into DB for ${CURRENT_TRANS_ID}
-    Force Update Transaction Status    ${CURRENT_TRANS_ID}    SUCCESS
-
-    # 5. Verify final state logic
+    # We pass a dummy real_bank_url to trigger the background forwarding
+    ${data}=    Create Dictionary    amount=${AMOUNT}    test_response_code=00    real_bank_url=https://httpbin.org/post
+    ${response}=    POST To Bank Endpoint    ${data}
+    Status Should Be    200    ${response}
+    
+    # 2. Extract generated IDs
+    ${json}=    Set Variable    ${response.json()}
+    ${CURRENT_ORDER_CODE}=    Set Variable    ${json['order_code']}
+    ${CURRENT_TRANS_ID}=    Set Variable    ${json['transaction_id']}
+    Should Be Equal    ${json['status']}    SUCCESS
+    Should Be Equal    ${json['code']}      00
+    
+    Log To Console    \n---> Proxy intercepted! Created async Order: ${CURRENT_ORDER_CODE} | Transaction ID: ${CURRENT_TRANS_ID}
+    Log To Console    ---> Mock Server instantly returned DB response: ${json['message']}
+    
+    # 3. Verify final state logic (The DB was injected INSTANTLY by the proxy mock!)
     Verify Database Order And Balance    ${CURRENT_ORDER_CODE}    SUCCESS    ${initial_balance}    ${AMOUNT}
     ${final_balance}=    Get Wallet Balance    ${1}
-    Log To Console    ---> Final Balance verified as: ${final_balance}
+    Log To Console    ---> Zero waiting needed. Final Balance verified as: ${final_balance}
 
 Scenario: Automated Wallet Refund On Bank Failure
     [Documentation]    Special flow: Create -> Activate (Deduct first) -> Bank Fail -> Verify Auto-Refund.
