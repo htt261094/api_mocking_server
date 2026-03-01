@@ -9,6 +9,7 @@ ${CURRENT_TRANS_ID}      ${None}
 ${AMOUNT}                200000
 ${PARTNER_CODE}          NAPAS
 ${INITIAL_BALANCE}       ${None}
+${PROXY_RESPONSE}        ${None}
 
 *** Keywords ***
 Generate Unique Order ID

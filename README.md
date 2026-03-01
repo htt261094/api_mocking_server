@@ -32,10 +32,8 @@ A local SQLite database used to store state and drive mock logic.
 - **Logic**: The `mock/db_manipulator.py` script handles all direct database logic (State Injection).
 
 ### 3. Test Suites (`tests/`)
-- `api_tests.robot`: Standard API functional tests.
-- `payment_flow.robot`: End-to-end payment lifecycle.
-- `db_driven_demo.robot`: Tests driven by mock response codes stored in the DB.
-- `refund_scenario.robot`: Verifies the wallet refund logic on transaction failure.
+- `01_api_suite.robot`: Standard API functional tests.
+- `02_payment_lifecycle.robot`: End-to-end payment lifecycle, verifying wallet refund logic, and DB-driven mock responses.
 
 ---
 
@@ -44,7 +42,7 @@ A local SQLite database used to store state and drive mock logic.
 ### State Injection
 We bypass external delays (like waiting for a bank callback) by directly updating the database.
 - **Scenario**: Create Order -> Wait -> Inject `SUCCESS` into DB -> Verify Wallet.
-- **Read**: `tests/demo_scenario.robot` to see the implementation.
+- **Read**: `tests/02_payment_lifecycle.robot` to see the implementation.
 
 ### DB-Driven Mocking
 Instead of hardcoding "Success" or "Fail", the mock server reads the desired outcome from the `bank_responses` table.
@@ -52,7 +50,7 @@ Instead of hardcoding "Success" or "Fail", the mock server reads the desired out
 
 ### Wallet Refund Logic
 Ensures user funds are protected. If a bank call is captured and then marked as failed, the system automatically refunds the pre-deducted amount to the user's wallet.
-- **Read**: `tests/refund_scenario.robot`.
+- **Read**: `tests/02_payment_lifecycle.robot`.
 
 ---
 
@@ -60,7 +58,7 @@ Ensures user funds are protected. If a bank call is captured and then marked as 
 If you are new to the project, read files in this order:
 1.  **`mock/init_db.py`**: Understand the data structure.
 2.  **`resources/db_keywords.resource`**: See how we bridge Robot Framework with Python logic.
-3.  **`tests/demo_scenario.robot`**: Understand the core "State Injection" testing philosophy.
+3.  **`tests/02_payment_lifecycle.robot`**: Understand the core "State Injection" testing philosophy.
 4.  **`mock/server.py`**: See how the "Middleman" captures real API calls.
 
 ---
