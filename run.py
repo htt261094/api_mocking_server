@@ -9,8 +9,8 @@ def run_server():
     return subprocess.Popen([sys.executable, "-m", "mock.server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 def run_tests():
-    print("Running Robot tests...")
-    result = subprocess.run([sys.executable, "-m", "robot", "tests/"])
+    print("Running Robot tests with TRACE logging...")
+    result = subprocess.run([sys.executable, "-m", "robot", "--loglevel", "TRACE", "tests/"])
     return result.returncode
 
 def main():

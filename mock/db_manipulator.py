@@ -185,3 +185,4 @@ def create_order_and_transaction(order_code, amount, partner_code, partner_trans
 def force_update_transaction_status(transaction_id, status):
     resp_code = '00' if status == 'SUCCESS' else '99'
     process_transaction_with_db_mock(transaction_id, resp_code)
+

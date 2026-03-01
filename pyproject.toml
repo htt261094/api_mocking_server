@@ -6,4 +6,5 @@ robot.lint.enabled = true
 
 [tool.robotcode.robot]
 pythonpath = ["."]
+args = ["--loglevel", "TRACE"]
 # paths = ["tests", "resources"]
