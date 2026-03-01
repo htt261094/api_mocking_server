@@ -10,18 +10,10 @@ Scenario: Proxy Real Bank Requests and Mock Local Responses
     
     # 1. POST request to Mock Server (simulate Middleman calling the proxy instead of Real Bank)
     ${initial_balance}=    Get Wallet Balance    ${1}
-    # We pass a dummy real_bank_url to ALWAYS trigger the background forwarding
     ${response}=    Simulate Proxy Bank Request    ${AMOUNT}    00    https://httpbin.org/post
     
-    # 2. Extract generated IDs
-    ${json}=    Set Variable    ${response.json()}
-    ${CURRENT_ORDER_CODE}=    Set Variable    ${json['order_code']}
-    ${CURRENT_TRANS_ID}=    Set Variable    ${json['transaction_id']}
-    Should Be Equal    ${json['status']}    SUCCESS
-    Should Be Equal    ${json['code']}      00
-    
-    Log To Console    \n---> Proxy intercepted! Created async Order: ${CURRENT_ORDER_CODE} | Transaction ID: ${CURRENT_TRANS_ID}
-    Log To Console    ---> Mock Server instantly returned DB response: ${json['message']}
+    # 2. Extract generated IDs and Verify Mock Response
+    Verify Proxy Response And Initialize State    ${response}
     
     # 3. Verify final state logic (The DB was injected INSTANTLY by the proxy mock!)
     Verify Database Order And Balance    ${CURRENT_ORDER_CODE}    SUCCESS    ${initial_balance}    ${AMOUNT}

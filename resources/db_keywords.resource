@@ -29,6 +29,17 @@ Setup Unique Test IDs
     Set Test Variable    ${CURRENT_ORDER_CODE}    ${order_code}
     Set Test Variable    ${CURRENT_TRANS_ID}      ${trans_id}
 
+Verify Proxy Response And Initialize State
+    [Documentation]    Analyzes the mocked proxy JSON response and sets suite variables for the rest of the test seamlessly.
+    [Arguments]    ${response}
+    ${json}=    Set Variable    ${response.json()}
+    Should Be Equal    ${json['status']}    SUCCESS
+    Should Be Equal    ${json['code']}      00
+    Set Test Variable    ${CURRENT_ORDER_CODE}    ${json['order_code']}
+    Set Test Variable    ${CURRENT_TRANS_ID}      ${json['transaction_id']}
+    Log To Console    \n---> Proxy intercepted! Created async Order: ${CURRENT_ORDER_CODE} | Transaction ID: ${CURRENT_TRANS_ID}
+    Log To Console    ---> Mock Server instantly returned DB response: ${json['message']}
+
 Verify Database Order And Balance
     [Arguments]    ${order_code}    ${expected_status}    ${initial_balance}    ${amount}
     ${final_status}=    Get Order Status    ${order_code}
