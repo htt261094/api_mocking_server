@@ -1,0 +1,115 @@
+{
+    "workflow_name": "generate-tests",
+    "trigger": "/generate-tests <path-to-api-document>",
+    "description": "Execute the dual-agent pipeline to generate Robot Framework test scripts from an API document.",
+    "prerequisites": [
+        "An API specification document (OpenAPI JSON/YAML, Markdown, or plain text) must be provided or referenced."
+    ],
+    "phases": [
+        {
+            "phase": 1,
+            "name": "Creator Agent Execution",
+            "agent_id": "creator_agent",
+            "model": "Gemini 3.1 Pro",
+            "steps": [
+                {
+                    "step": 1,
+                    "action": "load_config",
+                    "description": "Read the pipeline configuration and agent definitions from .agents/SOP.json"
+                },
+                {
+                    "step": 2,
+                    "action": "load_reference_files",
+                    "description": "Read all reference files to learn the project's test style",
+                    "files": [
+                        "tests/02_payment_lifecycle.robot",
+                        "tests/01_api_suite.robot",
+                        "resources/api_keywords.resource",
+                        "resources/db_keywords.resource"
+                    ]
+                },
+                {
+                    "step": 3,
+                    "action": "load_api_document",
+                    "description": "Read the API document provided by the user (file path or pasted content)"
+                },
+                {
+                    "step": 4,
+                    "action": "parse_endpoints",
+                    "description": "Extract every endpoint, method, parameter, header, and response code from the API document — nothing else"
+                },
+                {
+                    "step": 5,
+                    "action": "identify_scenarios",
+                    "description": "Derive happy-path and failure scenarios ONLY from what the document explicitly states"
+                },
+                {
+                    "step": 6,
+                    "action": "design_keywords",
+                    "description": "Write keyword names as plain English sentences — no variables, no technical jargon"
+                },
+                {
+                    "step": 7,
+                    "action": "generate_robot_file",
+                    "description": "Generate the .robot file with ZERO variables in test cases — keyword calls only",
+                    "output": "tests/<api_name>_tests.robot"
+                },
+                {
+                    "step": 8,
+                    "action": "generate_resource_file",
+                    "description": "Generate the .resource file with full keyword implementations and # Source: citation comments",
+                    "output": "resources/<api_name>_keywords.resource"
+                },
+                {
+                    "step": 9,
+                    "action": "generate_coverage_report",
+                    "description": "Generate a JSON summary of endpoint coverage",
+                    "output": "tests/<api_name>_coverage.json"
+                }
+            ]
+        },
+        {
+            "phase": 2,
+            "name": "Supervisor Agent Review",
+            "agent_id": "supervisor_agent",
+            "model": "Claude Opus 4.6 (Thinking)",
+            "steps": [
+                {
+                    "step": 1,
+                    "action": "load_artifacts",
+                    "description": "Re-read the original API document and all generated files from Phase 1"
+                },
+                {
+                    "step": 2,
+                    "action": "run_validation_checklist",
+                    "description": "Systematically verify all 9 checklist items (V1–V9) from SOP.json",
+                    "checklist": [
+                        "V1: Every endpoint has at least one test case",
+                        "V2: The .robot file has ZERO ${...} variables",
+                        "V3: Every keyword has a # Source: comment",
+                        "V4: No hallucinated endpoints, params, or status codes",
+                        "V5: All test cases have [Documentation]",
+                        "V6: Keywords read as plain English sentences",
+                        "V7: Data-driven tests use [Template] correctly",
+                        "V8: State passed via Set Test Variable, not returns in .robot",
+                        "V9: Coverage report is accurate"
+                    ]
+                },
+                {
+                    "step": 3,
+                    "action": "produce_verdict",
+                    "description": "Score each category (factual_accuracy, readability, completeness, style_match) out of 100 and set verdict to APPROVED or REVISION_REQUIRED"
+                },
+                {
+                    "step": 4,
+                    "action": "feedback_or_approve",
+                    "conditions": {
+                        "if_revision_required": "Return structured feedback with issues array and repeat Phase 1 from step 4 (max 2 retries)",
+                        "if_approved": "Notify the user that the files are ready for review",
+                        "if_retries_exhausted": "Escalate to human with the full issues list"
+                    }
+                }
+            ]
+        }
+    ]
+}

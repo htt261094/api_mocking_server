@@ -1,0 +1,318 @@
+{
+    "flow_name": "API Test Automation Pipeline",
+    "version": "2.0",
+    "description": "A dual-agent pipeline: a Creator Agent generates Robot Framework test scripts from API documents, then a Supervisor Agent reviews and validates the output for correctness, readability, and strict adherence to the source document.",
+    "pipeline": {
+        "stages": [
+            {
+                "order": 1,
+                "agent_id": "creator_agent"
+            },
+            {
+                "order": 2,
+                "agent_id": "supervisor_agent"
+            }
+        ],
+        "feedback_loop": {
+            "enabled": true,
+            "max_retries": 2,
+            "on_failure": "supervisor_agent returns structured feedback → creator_agent revises",
+            "on_exhaustion": "escalate_to_human"
+        }
+    },
+    "agents": [
+        {
+            "id": "creator_agent",
+            "name": "API Test Script Creator",
+            "model": "Gemini 3.1 Pro",
+            "orchestration": {
+                "temperature": 0.2,
+                "max_output_tokens": 16384,
+                "timeout_seconds": 120,
+                "note": "Low temperature to minimize creative hallucination. High token budget for large API docs."
+            },
+            "system_prompt": "You are a Senior QA Automation Engineer specializing in Robot Framework. Your ONLY job is to read an API specification document and produce two output files:\n1. A .robot test script with ZERO variables — only plain-English keyword calls.\n2. A .resource file containing all keyword implementations, variables, and technical logic.\n\nYou are STRICTLY FACTUAL. You may ONLY reference endpoints, methods, parameters, headers, status codes, and response schemas that are EXPLICITLY stated in the provided API document. If something is ambiguous or missing from the document, you must flag it — never guess.\n\nYour output style must match the reference files provided. Study them carefully before generating anything.",
+            "thinking_instructions": "Before generating any output, reason through the following steps internally:\n1. List every endpoint from the API document with its method, path, parameters, and expected responses.\n2. For each endpoint, identify the happy-path scenario and at least one failure scenario.\n3. Draft the keyword names as plain English sentences.\n4. Verify each keyword name maps to exactly one endpoint interaction documented in the source.\n5. Only after this reasoning is complete, produce the .robot and .resource files.",
+            "grounding_strategy": {
+                "description": "Every generated keyword MUST be traceable back to the API document.",
+                "rules": [
+                    "For each keyword in the .resource file, add a comment citing the source: # Source: [Section/Endpoint] from API doc",
+                    "Do NOT invent endpoints, query parameters, headers, or response fields not in the document.",
+                    "If the document is ambiguous about a status code or error response, add a [TODO] comment instead of guessing.",
+                    "If the document references external dependencies (auth tokens, DB state), note them in the .resource file header as prerequisites."
+                ]
+            },
+            "input_schema": {
+                "api_document": {
+                    "type": "string",
+                    "description": "The full API specification content (OpenAPI JSON/YAML, Markdown, or plain text).",
+                    "required": true
+                },
+                "reference_files": {
+                    "type": "array",
+                    "description": "Existing .robot and .resource files to study for style matching.",
+                    "required": false
+                },
+                "feedback": {
+                    "type": "object",
+                    "description": "Structured feedback from supervisor_agent on a previous revision attempt.",
+                    "required": false
+                }
+            },
+            "output_schema": {
+                "test_script": {
+                    "filename": "<api_name>_tests.robot",
+                    "format": "Robot Framework test file",
+                    "rules": [
+                        "*** Settings *** section: only Resource imports",
+                        "*** Test Cases *** section: only plain English keyword calls, no ${variables}",
+                        "Each test case must have a [Documentation] tag describing what it verifies",
+                        "Use [Template] for data-driven tests where applicable"
+                    ]
+                },
+                "resource_file": {
+                    "filename": "<api_name>_keywords.resource",
+                    "format": "Robot Framework resource file",
+                    "rules": [
+                        "*** Settings *** section: Library imports (RequestsLibrary, Collections, etc.)",
+                        "*** Variables *** section: all test data and state variables",
+                        "*** Keywords *** section: full implementation with source citation comments",
+                        "Use Set Test Variable to pass state between keywords",
+                        "Use Create Dictionary for request payloads",
+                        "Use POST On Session / GET On Session for API calls"
+                    ]
+                },
+                "coverage_report": {
+                    "format": "JSON object summarizing which endpoints were covered and which were skipped with reasons",
+                    "required": true
+                }
+            },
+            "workflow_steps": [
+                {
+                    "step": 1,
+                    "name": "Ingest and Parse the API Document",
+                    "description": "Read the entire API document. Extract a structured list of: endpoints (method + path), request parameters (query, path, body), required headers, authentication requirements, and all documented response codes with their schemas.",
+                    "output": "Internal structured endpoint catalog (not shown to user)"
+                },
+                {
+                    "step": 2,
+                    "name": "Identify Test Scenarios per Endpoint",
+                    "description": "For each endpoint, derive: (a) one happy-path test using documented success response, (b) one or more failure tests for each documented error code. Only create scenarios that are explicitly supported by the document.",
+                    "output": "Scenario list with source citations"
+                },
+                {
+                    "step": 3,
+                    "name": "Study Reference Files for Style",
+                    "description": "Read the provided reference .robot and .resource files. Internalize the naming conventions, keyword structure, spacing, documentation style, and variable naming patterns. Your output MUST be stylistically indistinguishable from these references.",
+                    "output": "Style guide notes (internal)"
+                },
+                {
+                    "step": 4,
+                    "name": "Design High-Level Keywords",
+                    "description": "For each scenario, write the keyword name as a plain English sentence (e.g., 'Submit A Valid Payment Request', 'Verify The Response Contains User Details'). Verify no keyword name contains variables or technical jargon.",
+                    "output": "Keyword name list"
+                },
+                {
+                    "step": 5,
+                    "name": "Generate .robot Test Script",
+                    "description": "Assemble the .robot file: Settings (Resource imports only), Test Cases (keyword calls only, with [Documentation] and [Template] where appropriate). Zero variables in this file.",
+                    "output": "<api_name>_tests.robot"
+                },
+                {
+                    "step": 6,
+                    "name": "Generate .resource Keyword File",
+                    "description": "Assemble the .resource file: Settings (Library imports), Variables (test data), Keywords (full implementation with # Source comments). Every keyword must trace back to a documented endpoint.",
+                    "output": "<api_name>_keywords.resource"
+                },
+                {
+                    "step": 7,
+                    "name": "Generate Coverage Report",
+                    "description": "Produce a JSON summary listing: endpoints covered, endpoints skipped (with reason), total coverage percentage.",
+                    "output": "coverage_report.json"
+                },
+                {
+                    "step": 8,
+                    "name": "Self-Check",
+                    "description": "Before submitting, verify: (a) .robot has zero variables, (b) every keyword in .resource has a # Source comment, (c) no endpoint was invented, (d) style matches references.",
+                    "output": "Pass/fail self-check result"
+                }
+            ],
+            "reference_files": [
+                {
+                    "path": "tests/02_payment_lifecycle.robot",
+                    "purpose": "Gold standard for readable .robot test style — notice zero variables in test cases"
+                },
+                {
+                    "path": "tests/01_api_suite.robot",
+                    "purpose": "Example of template-driven and direct API test cases"
+                },
+                {
+                    "path": "resources/api_keywords.resource",
+                    "purpose": "Example of API keyword abstractions using RequestsLibrary"
+                },
+                {
+                    "path": "resources/db_keywords.resource",
+                    "purpose": "Example of complex keyword implementation with state management via Set Test Variable"
+                }
+            ],
+            "examples": {
+                "bad_example": {
+                    "label": "❌ Variables leaked into .robot — NEVER do this",
+                    "robot_file": "*** Test Cases ***\nScenario: Payment\n    ${resp}=    POST To API    ${order_data}\n    Should Be Equal As Strings    ${resp.status_code}    200"
+                },
+                "good_example": {
+                    "label": "✅ Clean readable .robot with keywords only",
+                    "robot_file": "*** Settings ***\nResource    ../resources/payment_keywords.resource\n\n*** Test Cases ***\nScenario: Successful Payment Flow\n    [Documentation]    Verify that a valid payment request is processed successfully.\n    Submit A Valid Payment Request\n    Verify Payment Response Is Successful",
+                    "resource_file": "*** Settings ***\nLibrary    RequestsLibrary\nLibrary    Collections\n\n*** Variables ***\n${BASE_URL}          http://127.0.0.1:8000\n${LATEST_RESPONSE}   ${None}\n\n*** Keywords ***\nSubmit A Valid Payment Request\n    # Source: POST /v1/payment — API doc section 3.1\n    Create Session    api    ${BASE_URL}\n    ${payload}=    Create Dictionary    amount=100    currency=VND\n    ${response}=    POST On Session    api    /v1/payment    json=${payload}\n    Status Should Be    200    ${response}\n    Set Test Variable    ${LATEST_RESPONSE}    ${response}\n\nVerify Payment Response Is Successful\n    # Source: POST /v1/payment — Expected 200 response schema\n    ${json}=    Set Variable    ${LATEST_RESPONSE.json()}\n    Should Be Equal    ${json['status']}    SUCCESS"
+                }
+            }
+        },
+        {
+            "id": "supervisor_agent",
+            "name": "QA Supervisor & Reviewer",
+            "model": "Claude Opus 4.6 (Thinking)",
+            "orchestration": {
+                "temperature": 0.1,
+                "max_output_tokens": 8192,
+                "timeout_seconds": 90,
+                "note": "Very low temperature for deterministic, rigorous review. Thinking mode engages deep reasoning."
+            },
+            "system_prompt": "You are a Senior QA Automation Architect performing a rigorous code review. You receive three inputs: (1) the original API document, (2) a .robot test script, and (3) a .resource keyword file — both generated by a junior agent.\n\nYour job is to catch EVERY mistake. You must verify factual accuracy against the API document, enforce the readability constraints, and ensure the output matches the project's established style.\n\nYou are the last line of defense before these files go into production. Be thorough. Be strict. Use your extended thinking to reason deeply before issuing a verdict.",
+            "thinking_instructions": "Use your <thinking> block to perform these checks systematically:\n1. GROUNDING CHECK: For each keyword in the .resource file, find the # Source comment and verify it matches a real section in the API document. Flag any keyword without a source or with an incorrect source.\n2. HALLUCINATION SCAN: List every endpoint, parameter, header, and status code referenced in the .resource file. Cross-check each one against the API document. Flag anything not found.\n3. READABILITY SCAN: Read every line of the .robot file. Flag any line containing ${...} variable syntax.\n4. COMPLETENESS CHECK: List every endpoint in the API document. Verify each has at least one test. Flag missing coverage.\n5. STYLE CHECK: Compare the generated files against the reference files. Flag deviations in naming convention, spacing, or structure.\n\nOnly after completing ALL checks in your thinking block, produce your verdict.",
+            "input_schema": {
+                "api_document": {
+                    "type": "string",
+                    "description": "The original API specification document (same one given to creator_agent).",
+                    "required": true
+                },
+                "generated_robot_file": {
+                    "type": "string",
+                    "description": "The .robot test script produced by creator_agent.",
+                    "required": true
+                },
+                "generated_resource_file": {
+                    "type": "string",
+                    "description": "The .resource keyword file produced by creator_agent.",
+                    "required": true
+                },
+                "coverage_report": {
+                    "type": "object",
+                    "description": "The coverage report JSON produced by creator_agent.",
+                    "required": true
+                }
+            },
+            "output_schema": {
+                "verdict": {
+                    "type": "enum",
+                    "values": [
+                        "APPROVED",
+                        "REVISION_REQUIRED"
+                    ],
+                    "description": "Final decision on whether the artifacts pass quality review."
+                },
+                "score": {
+                    "type": "object",
+                    "fields": {
+                        "factual_accuracy": "0-100 — Are all endpoints/params/responses real?",
+                        "readability": "0-100 — Is the .robot file variable-free and readable?",
+                        "completeness": "0-100 — Are all documented endpoints covered?",
+                        "style_match": "0-100 — Does it match the reference file conventions?"
+                    }
+                },
+                "issues": {
+                    "type": "array",
+                    "items": {
+                        "severity": "CRITICAL | WARNING | INFO",
+                        "category": "hallucination | readability | completeness | style",
+                        "file": ".robot or .resource",
+                        "line_or_keyword": "specific location",
+                        "description": "what is wrong",
+                        "suggestion": "how to fix it"
+                    }
+                },
+                "summary": {
+                    "type": "string",
+                    "description": "Brief human-readable summary of the review findings."
+                }
+            },
+            "validation_checklist": [
+                {
+                    "id": "V1",
+                    "check": "Every endpoint in the API document has at least one test case",
+                    "category": "completeness",
+                    "severity": "CRITICAL"
+                },
+                {
+                    "id": "V2",
+                    "check": "The .robot file contains ZERO ${...} variable references",
+                    "category": "readability",
+                    "severity": "CRITICAL"
+                },
+                {
+                    "id": "V3",
+                    "check": "Every keyword in the .resource file has a # Source comment tracing to the API doc",
+                    "category": "grounding",
+                    "severity": "CRITICAL"
+                },
+                {
+                    "id": "V4",
+                    "check": "No endpoint, parameter, header, or status code is fabricated (not in API doc)",
+                    "category": "hallucination",
+                    "severity": "CRITICAL"
+                },
+                {
+                    "id": "V5",
+                    "check": "All test cases have a [Documentation] tag",
+                    "category": "style",
+                    "severity": "WARNING"
+                },
+                {
+                    "id": "V6",
+                    "check": "Keyword names read as plain English sentences (Title Case, no abbreviations)",
+                    "category": "readability",
+                    "severity": "WARNING"
+                },
+                {
+                    "id": "V7",
+                    "check": "Data-driven tests use [Template] pattern correctly",
+                    "category": "style",
+                    "severity": "INFO"
+                },
+                {
+                    "id": "V8",
+                    "check": "State is passed between keywords via Set Test Variable, not return values in .robot",
+                    "category": "style",
+                    "severity": "WARNING"
+                },
+                {
+                    "id": "V9",
+                    "check": "Coverage report accurately reflects actual test coverage",
+                    "category": "completeness",
+                    "severity": "WARNING"
+                }
+            ],
+            "workflow_steps": [
+                {
+                    "step": 1,
+                    "name": "Receive Artifacts",
+                    "description": "Load the original API document, the generated .robot file, the generated .resource file, and the coverage report."
+                },
+                {
+                    "step": 2,
+                    "name": "Deep Thinking Review",
+                    "description": "Engage extended thinking mode. Systematically run through the validation_checklist items V1–V9. Document each check result internally."
+                },
+                {
+                    "step": 3,
+                    "name": "Produce Structured Verdict",
+                    "description": "Output the verdict, score breakdown, issues list, and summary in the defined output_schema format."
+                },
+                {
+                    "step": 4,
+                    "name": "Feedback or Approval",
+                    "description": "If verdict is REVISION_REQUIRED, return the issues array to creator_agent as structured feedback. If APPROVED, finalize and mark the pipeline as complete."
+                }
+            ]
+        }
+    ]
+}
